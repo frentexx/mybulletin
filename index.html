@@ -77,8 +77,9 @@
             
             <!-- 登出按鈕和身份狀態 -->
             <div class="flex justify-between items-center p-2">
+                <!-- 管理者狀態提示，預設隱藏 -->
                 <p id="admin-status" class="text-sm font-bold text-green-600 hidden">
-                    ✅ 管理者模式
+                    ✅ 管理者模式 (Email: <span id="user-email-display"></span>)
                 </p>
                 <button id="signout-btn" class="text-sm text-red-500 hover:text-red-700 font-medium py-1 px-3 rounded-full border border-red-300 hover:border-red-500 transition duration-150">
                     登出
@@ -142,11 +143,11 @@
             measurementId: "G-L223W74MR2"
         };
         
-        // ** 管理者清單 **：只有這些 email 才能新增/刪除公告
-        // 這裡加入了您之前提供的 email 作為管理者
+        // ** 管理者清單 (請將此處替換為您登入時使用的 Email!) **
+        // 只有在清單中的 email 才能看到新增/刪除公告的介面。
         const ADMIN_EMAILS = [
-            "fuwem@ppsh.ptc.edu.tw", 
-            // 如果有其他管理者，請在這裡加入他們的 email
+            // 請將 'YOUR_ACTUAL_ADMIN_EMAIL' 替換為您的完整 email，例如: 'fuwen@ppsh.ptc.edu.tw'
+            "fuwen@ppsh.ptc.edu.tw", 
         ];
         
         // 初始化Firebase
@@ -170,6 +171,7 @@
         const loadingIndicator = document.getElementById('loading-indicator');
         const fileWarning = document.getElementById('file-protocol-warning');
         const adminStatusEl = document.getElementById('admin-status'); // 管理者狀態顯示
+        const userEmailDisplay = document.getElementById('user-email-display'); // 顯示管理者 Email
         const adminFormSection = document.getElementById('admin-form-section'); // 管理者表單區塊
         const newPostForm = document.getElementById('new-post-form');
         const postTitleInput = document.getElementById('post-title');
@@ -185,6 +187,7 @@
         // 格式化日期
         function formatDate(timestamp) {
             if (!timestamp) return '未知日期';
+            // 檢查是否為 Firebase Timestamp 物件
             const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp.seconds * 1000);
             return date.toLocaleDateString('zh-TW', {
                 year: 'numeric',
@@ -196,14 +199,28 @@
         }
         
         // 顯示/隱藏管理者 UI
-        function updateAdminUI(isAdmin) {
+        function updateAdminUI(isAdmin, email) {
             isUserAdmin = isAdmin;
+            userEmailDisplay.textContent = email || ''; // 顯示當前 Email
+            
             if (isAdmin) {
                 adminStatusEl.style.display = 'block';
                 adminFormSection.style.display = 'block';
+                // 修正：當為管理者時，確保狀態文字顯示正確
+                authStatusEl.textContent = `歡迎，${auth.currentUser.displayName || auth.currentUser.email}！ (管理者)`;
             } else {
                 adminStatusEl.style.display = 'none';
                 adminFormSection.style.display = 'none';
+                // 修正：當為普通使用者時，狀態文字顯示正確
+                if (auth.currentUser) {
+                     authStatusEl.textContent = `歡迎，${auth.currentUser.displayName || auth.currentUser.email}！ (一般使用者)`;
+                }
+            }
+            // 重新渲染公告以更新刪除按鈕
+            if (postsContainer.children.length > 0) {
+                 // 這裡我們不重新載入數據，只是重新渲染以綁定事件
+                const postsData = JSON.parse(postsContainer.dataset.posts || '[]');
+                renderPosts(postsData);
             }
         }
 
@@ -216,6 +233,7 @@
             e.preventDefault();
             
             if (!isUserAdmin) {
+                // 雖然 UI 上隱藏了，但為了安全再次檢查
                 alert('您沒有權限發佈公告！');
                 return;
             }
@@ -228,13 +246,20 @@
                 return;
             }
 
+            // 確保 auth.currentUser 存在
+            const user = auth.currentUser;
+            if (!user) {
+                alert('登入狀態遺失，請重新登入！');
+                return;
+            }
+
             try {
-                // 使用 addDoc 新增文件，Firestore 會自動分配 ID
+                // 使用 addDoc 新增文件
                 await addDoc(collection(db, postsCollectionPath), {
                     title: title,
                     content: content,
-                    author: auth.currentUser.displayName || auth.currentUser.email,
-                    authorEmail: auth.currentUser.email,
+                    author: user.displayName || user.email,
+                    authorEmail: user.email,
                     timestamp: Timestamp.now() // 使用 Firestore 服務端時間戳
                 });
                 
@@ -244,7 +269,11 @@
                 
             } catch (error) {
                 console.error("發佈公告失敗:", error);
-                alert(`發佈公告失敗，請檢查權限或網路連線: ${error.message}`);
+                // 權限錯誤訊息對應
+                const errorMessage = error.code === 'permission-denied' 
+                    ? '權限不足。請檢查 Firebase 安全規則，確認您的 Email 在管理員清單中。'
+                    : `發佈公告失敗: ${error.message}`;
+                alert(errorMessage);
             }
         }
 
@@ -255,7 +284,7 @@
                 return;
             }
 
-            // 替代 alert() 的自定義確認邏輯 (雖然這裡暫時使用 confirm() 快速實作)
+            // 替代 alert() 的自定義確認邏輯 (這裡暫時使用 window.confirm)
             if (!window.confirm('確定要刪除這則公告嗎？')) {
                 return;
             }
@@ -265,7 +294,10 @@
                 await deleteDoc(doc(db, postsCollectionPath, postId));
             } catch (error) {
                 console.error("刪除公告失敗:", error);
-                alert(`刪除公告失敗，請檢查權限或網路連線: ${error.message}`);
+                 const errorMessage = error.code === 'permission-denied' 
+                    ? '權限不足。請檢查 Firebase 安全規則。'
+                    : `刪除公告失敗: ${error.message}`;
+                alert(errorMessage);
             }
         }
 
@@ -273,12 +305,15 @@
         function renderPosts(posts) {
             loadingIndicator.style.display = 'none';
             postsContainer.innerHTML = '';
+            
+            // 將帖子數據儲存在容器的 dataset 中，以便在 updateAdminUI 中重新使用
+            postsContainer.dataset.posts = JSON.stringify(posts);
 
             if (posts.length === 0) {
                  postsContainer.innerHTML = `
                     <div class="bg-yellow-100 p-6 rounded-xl shadow-md border-t-4 border-yellow-500 text-center text-yellow-800">
                         <p class="font-semibold mb-2">公佈欄目前沒有任何公告。</p>
-                        <p class="text-sm">請前往Firebase控制台，在 **${postsCollectionPath}** 集合中新增測試公告。</p>
+                        <p class="text-sm">如果看不到任何公告，請檢查您的 Firebase 連線或 Firestore 規則。</p>
                     </div>
                 `;
                 return;
@@ -296,7 +331,7 @@
                 let deleteButtonHTML = '';
                 if (isUserAdmin && post.id) {
                     deleteButtonHTML = `
-                        <button data-post-id="${post.id}" class="delete-btn absolute top-3 right-3 text-red-400 hover:text-red-600 transition duration-150">
+                        <button data-post-id="${post.id}" title="刪除公告" class="delete-btn absolute top-3 right-3 text-red-400 hover:text-red-600 transition duration-150 p-1 rounded-full bg-red-50/50 hover:bg-red-100">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 10-2 0v6a1 1 0 102 0V8z" clip-rule="evenodd" />
                             </svg>
@@ -366,10 +401,10 @@
             const postsQuery = query(collection(db, postsCollectionPath));
 
             unsubscribePosts = onSnapshot(postsQuery, (snapshot) => {
-                // 注意：在 onSnapshot 內部，必須重新檢查 isUserAdmin 狀態，
-                // 因為 renderPosts 需要這個狀態來決定是否顯示刪除按鈕
+                // 獲取並儲存帖子數據，以便在 renderPosts 和 updateAdminUI 中使用
                 const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderPosts(posts);
+                // 重新渲染，這會根據當前的 isUserAdmin 狀態決定是否顯示刪除按鈕
+                renderPosts(posts); 
             }, (error) => {
                 console.error("載入公告失敗:", error);
                 loadingIndicator.innerHTML = '<p class="text-red-500">載入失敗，請檢查Firestore權限。</p>';
@@ -385,15 +420,18 @@
             
             if (user) {
                 // 檢查是否為管理者
-                currentUserEmail = user.email;
-                const isAdmin = ADMIN_EMAILS.includes(currentUserEmail);
-                updateAdminUI(isAdmin);
+                currentUserEmail = user.email ? user.email.toLowerCase() : '';
+                
+                // *** 關鍵檢查：將使用者 Email 與 ADMIN_EMAILS 清單進行比較 ***
+                const isAdmin = ADMIN_EMAILS.map(e => e.toLowerCase()).includes(currentUserEmail);
+                
+                // 更新 UI 狀態
+                updateAdminUI(isAdmin, currentUserEmail);
 
                 // 已登入（顯示公佈欄）
-                authStatusEl.textContent = `歡迎，${user.displayName || user.email}！`;
                 loginScreen.style.display = 'none';
                 mainContent.style.display = 'block';
-                loadPosts();
+                loadPosts(); // 確保開始監聽公告數據
                 
                 // 綁定新增公告事件 (只有登入後才綁定)
                 newPostForm.addEventListener('submit', addNewPost);
@@ -405,7 +443,7 @@
                 loginScreen.style.display = 'flex';
                 
                 // 重設管理者狀態
-                updateAdminUI(false); 
+                updateAdminUI(false, null); 
 
                 if (unsubscribePosts) {
                     unsubscribePosts();
