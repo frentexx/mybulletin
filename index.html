@@ -143,12 +143,13 @@
             measurementId: "G-L223W74MR2"
         };
         
-        // ** 管理者清單 (請將此處替換為您登入時使用的 Email!) **
-        // 只有在清單中的 email 才能看到新增/刪除公告的介面。
+        // ** 管理者清單 **
+        // 修正: 將 Email 直接寫入並確保轉為小寫
         const ADMIN_EMAILS = [
-            // 請將 'YOUR_ACTUAL_ADMIN_EMAIL' 替換為您的完整 email，例如: 'fuwen@ppsh.ptc.edu.tw'
             "fuwen@ppsh.ptc.edu.tw", 
         ];
+        // 為了比對方便，將管理者清單轉換為小寫
+        const ADMIN_EMAILS_LOWER = ADMIN_EMAILS.map(e => e.toLowerCase());
         
         // 初始化Firebase
         const app = initializeApp(firebaseConfig);
@@ -271,7 +272,7 @@
                 console.error("發佈公告失敗:", error);
                 // 權限錯誤訊息對應
                 const errorMessage = error.code === 'permission-denied' 
-                    ? '權限不足。請檢查 Firebase 安全規則，確認您的 Email 在管理員清單中。'
+                    ? '權限不足。請檢查 Firebase 安全規則。'
                     : `發佈公告失敗: ${error.message}`;
                 alert(errorMessage);
             }
@@ -419,14 +420,14 @@
             }
             
             if (user) {
-                // 檢查是否為管理者
+                // 修正步驟 1：強制將使用者的 Email 轉換為小寫
                 currentUserEmail = user.email ? user.email.toLowerCase() : '';
                 
-                // *** 關鍵檢查：將使用者 Email 與 ADMIN_EMAILS 清單進行比較 ***
-                const isAdmin = ADMIN_EMAILS.map(e => e.toLowerCase()).includes(currentUserEmail);
+                // *** 關鍵檢查：將小寫的使用者 Email 與小寫的 ADMIN_EMAILS_LOWER 清單進行比較 ***
+                const isAdmin = ADMIN_EMAILS_LOWER.includes(currentUserEmail);
                 
                 // 更新 UI 狀態
-                updateAdminUI(isAdmin, currentUserEmail);
+                updateAdminUI(isAdmin, user.email); // 顯示時使用原始 Email (大小寫不變)
 
                 // 已登入（顯示公佈欄）
                 loginScreen.style.display = 'none';
