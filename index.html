@@ -70,36 +70,6 @@
             background-color: #4CAF5020; /* Secondary 顏色的輕微透明度 */
             color: #4CAF50; /* Secondary 顏色文字 */
         }
-        
-        /* 針對 contenteditable 區域的樣式 */
-        .editor-content {
-            min-height: 120px;
-            padding: 0.75rem;
-            border-width: 1px;
-            border-color: #d1d5db; /* border-gray-300 */
-            border-radius: 0.375rem; /* rounded-md */
-            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
-            outline: none;
-            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-            white-space: pre-wrap; /* 保持 pre-wrap 以便顯示原始換行 */
-        }
-        .editor-content:focus {
-            border-color: #EF6C00; /* focus:border-primary */
-            box-shadow: 0 0 0 3px rgba(239, 108, 0, 0.2); /* focus:ring-primary */
-        }
-        
-        /* 確保公告內容中的連結和粗體能夠正常顯示 */
-        #posts-container a {
-            color: #03A9F4; /* 使用 Accent Blue */
-            text-decoration: underline;
-        }
-        #posts-container b, #posts-container strong {
-            font-weight: 700;
-        }
-        #posts-container i, #posts-container em {
-            font-style: italic;
-        }
-
     </style>
 </head>
 <!-- 使用定義的背景色 -->
@@ -184,32 +154,11 @@
                         <!-- 更新焦點環顏色為 Primary -->
                         <input type="text" id="post-department" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary p-2 border" placeholder="如: 教務處、學務處" required>
                     </div>
-                    <!-- 內容編輯器區塊 -->
+                    <!-- 內容 -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">內容</label>
-                        <!-- 編輯器工具列 -->
-                        <div class="flex space-x-2 p-1 bg-gray-100 rounded-t-md border border-gray-300 border-b-0">
-                            <!-- 粗體按鈕 -->
-                            <button type="button" data-command="bold" title="粗體" class="editor-btn text-primary hover:bg-primary/20 p-2 rounded-md transition duration-150">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8h-4v8h4a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2z"></path></svg>
-                            </button>
-                            <!-- 斜體按鈕 -->
-                            <button type="button" data-command="italic" title="斜體" class="editor-btn text-primary hover:bg-primary/20 p-2 rounded-md transition duration-150">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"></line><line x1="14" y1="20" x2="5" y2="20"></line><line x1="15" y1="4" x2="9" y2="20"></line></svg>
-                            </button>
-                            <!-- 插入連結按鈕 -->
-                            <button type="button" id="link-btn" title="插入連結" class="editor-btn text-primary hover:bg-primary/20 p-2 rounded-md transition duration-150">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                            </button>
-                        </div>
-                        <!-- contenteditable 區域 -->
-                        <!-- 移除原本的 <textarea> -->
-                        <div id="post-content-editor" 
-                             class="editor-content w-full rounded-b-md focus:ring-primary border-gray-300 shadow-sm"
-                             contenteditable="true" 
-                             required>
-                             請在此輸入公告內容...
-                        </div>
+                        <label for="post-content" class="block text-sm font-medium text-gray-700">內容</label>
+                        <!-- 更新焦點環顏色為 Primary -->
+                        <textarea id="post-content" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary p-2 border" required></textarea>
                     </div>
                     <!-- 使用 Secondary 顏色作為發佈按鈕顏色 -->
                     <button type="submit" class="bg-secondary text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-secondary/90 transition duration-150 w-full">
@@ -348,8 +297,7 @@
         const postTitleInput = document.getElementById('post-title');
         const postCategorySelect = document.getElementById('post-category'); // 新增公告的分類選單
         const postDepartmentInput = document.getElementById('post-department'); 
-        // 變更為 contenteditable 區域的元素
-        const postContentEditor = document.getElementById('post-content-editor'); 
+        const postContentInput = document.getElementById('post-content');
         
         const searchInput = document.getElementById('search-input'); // 搜尋框
         const filterCategorySelect = document.getElementById('filter-category'); // 篩選分類
@@ -359,10 +307,6 @@
         const prevPageBtn = document.getElementById('prev-page'); // 上一頁按鈕
         const nextPageBtn = document.getElementById('next-page'); // 下一頁按鈕
         const pageInfoEl = document.getElementById('page-info'); // 頁碼資訊
-        
-        // 編輯器按鈕
-        const editorButtons = document.querySelectorAll('.editor-btn');
-        const linkBtn = document.getElementById('link-btn');
 
         // ==========================================================
         // 狀態與輔助函數
@@ -452,9 +396,10 @@
             filterCategorySelect.dataset.currentValue = selectedCategory;
 
             filteredPosts = allPosts.filter(post => {
-                // 1. 關鍵字搜尋 (只搜尋標題，因為內容是 HTML，搜尋起來比較複雜且低效)
+                // 1. 關鍵字搜尋 (標題或內容)
                 const matchesSearch = !searchText || 
-                                      (post.title && post.title.toLowerCase().includes(searchText));
+                                      (post.title && post.title.toLowerCase().includes(searchText)) ||
+                                      (post.content && post.content.toLowerCase().includes(searchText));
                 
                 // 2. 分類篩選
                 const matchesCategory = !selectedCategory || post.category === selectedCategory;
@@ -512,7 +457,6 @@
                     const categoryTag = post.category ? `<span class="post-tag category-tag">${post.category}</span>` : '';
                     const departmentTag = post.department ? `<span class="post-tag department-tag">${post.department}</span>` : ''; // 保留發佈單位的顯示
 
-                    // 使用 post.content 且透過 innerHTML 渲染 (支援 HTML 格式)
                     postElement.innerHTML = `
                         ${deleteButtonHTML}
                         <div class="flex items-center mb-3">
@@ -521,9 +465,7 @@
                             <div class="text-sm text-gray-500 ml-auto">${formatDate(post.timestamp)}</div>
                         </div>
                         <h2 class="text-2xl font-semibold text-text-dark mb-2">${post.title || '[無標題]'}</h2>
-                        <div class="text-gray-600 mb-4 prose max-w-none">
-                            ${post.content || '無內容'}
-                        </div>
+                        <p class="text-gray-600 mb-4 whitespace-pre-wrap">${post.content || '無內容'}</p>
                         <div class="text-xs text-gray-400 mt-2 border-t pt-2 border-gray-100">
                             張貼者: ${post.author || '管理員'}
                         </div>
@@ -565,37 +507,6 @@
             applyFilters();
             renderCurrentPage();
         }
-        
-        // ==========================================================
-        // 編輯器功能
-        // ==========================================================
-        
-        // 執行編輯器指令
-        function executeCommand(command) {
-            // 聚焦編輯器以確保指令作用於正確的選區
-            postContentEditor.focus();
-            document.execCommand(command, false, null);
-        }
-        
-        // 處理插入連結
-        function insertLink() {
-            // 確保焦點在編輯器內
-            postContentEditor.focus();
-            
-            // 在 iFrame 環境中不能使用 window.prompt，必須使用自定義或控制台錯誤。
-            // 為了簡化和功能實現，我們使用一個 console.error 來模擬一個提示，並要求使用者直接在控制台輸入。
-            // 由於這是演示代碼，我們將使用簡單的 `prompt` 替代，但必須註明這在實際生產環境的 iFrame 中需要使用自定義 Modal。
-            
-            // 警告: 在 Canvas 提供的 iFrame 環境中，window.prompt() 會被禁用。
-            // 以下使用原生 prompt 僅為演示功能，在實際部署時應替換為 Modal。
-            const url = prompt("請輸入連結網址 (URL):");
-            
-            if (url) {
-                // 執行創建連結的命令
-                // createLink: 創建一個錨點連結
-                document.execCommand('createLink', false, url);
-            }
-        }
 
         // ==========================================================
         // CRUD 功能實作
@@ -606,30 +517,32 @@
             e.preventDefault();
             
             if (!isUserAdmin) {
+                // 替換 alert
                 console.error('權限不足：您沒有權限發佈公告！');
                 return;
             }
 
             const title = postTitleInput.value.trim();
+            // 從下拉選單取得值
             const category = postCategorySelect.value; 
             const department = postDepartmentInput.value.trim(); 
-            // 從 contenteditable 區域取得 HTML 內容
-            const content = postContentEditor.innerHTML.trim(); 
+            const content = postContentInput.value.trim();
             
-            // 檢查分類是否被選定。對於 contenteditable，我們檢查是否有內容或預設提示文字。
-            if (!title || !category || !department || content === "" || content === "請在此輸入公告內容...") {
+            // 檢查分類是否被選定
+            if (!title || !content || !category || !department) {
+                // 替換 alert
                 console.error('錯誤：標題、內容、公告分類和發佈單位都不能為空！');
                 return;
             }
 
             const user = auth.currentUser;
             if (!user) {
+                // 替換 alert
                 console.error('錯誤：登入狀態遺失，請重新登入！');
                 return;
             }
 
             try {
-                // 儲存時，content 欄位將包含 HTML 標籤 (<b>, <i>, <a> 等)
                 await addDoc(collection(db, postsCollectionPath), {
                     title: title,
                     content: content,
@@ -642,16 +555,16 @@
                 
                 // 清空表單
                 postTitleInput.value = '';
-                postCategorySelect.value = ''; 
+                postCategorySelect.value = ''; // 重設為 "請選擇分類"
                 postDepartmentInput.value = '';
-                // 清空 contenteditable 區域並重設預設提示文字
-                postContentEditor.innerHTML = '請在此輸入公告內容...';
+                postContentInput.value = '';
                 
             } catch (error) {
                 console.error("發佈公告失敗:", error);
                 const errorMessage = error.code === 'permission-denied' 
                     ? '權限不足。請檢查 Firebase 安全規則。'
                     : `發佈公告失敗: ${error.message}`;
+                // 替換 alert
                 console.error(errorMessage);
             }
         }
@@ -659,26 +572,37 @@
         // 刪除公告
         async function deletePost(postId) {
             if (!isUserAdmin) {
+                // 替換 alert
                 console.error('權限不足：您沒有權限刪除公告！');
                 return;
             }
             
+            // **重要：移除 window.confirm()，因為它在 iFrame 中無法使用。**
+            // 實際應用中，應替換為客製化的 UI 模態框進行確認，以避免誤刪。
+            
+            // 增加刪除中的視覺回饋
             const button = document.querySelector(`.delete-btn[data-post-id="${postId}"]`);
             if (button) {
                 button.disabled = true;
+                // 顯示旋轉圖示
                 button.innerHTML = '<svg class="animate-spin h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
             }
 
+
             try {
                 await deleteDoc(doc(db, postsCollectionPath, postId));
+                // 成功後 onSnapshot 會自動刷新 UI，無需額外處理
             } catch (error) {
                 console.error("刪除公告失敗:", error);
                  const errorMessage = error.code === 'permission-denied' 
                     ? '權限不足。請檢查 Firebase 安全規則。'
                     : `刪除公告失敗: ${error.message}`;
+                // 替換 alert
                 console.error(errorMessage);
+                // 失敗時恢復按鈕狀態
                 if (button) {
                     button.disabled = false;
+                    // 恢復原始圖示 (略過，因為 onSnapshot 會很快更新 UI)
                 }
             }
         }
@@ -761,35 +685,6 @@
             
             // 綁定新增公告事件
             newPostForm.addEventListener('submit', addNewPost);
-            
-            // 綁定編輯器工具列事件
-            editorButtons.forEach(button => {
-                const command = button.dataset.command;
-                if (command) {
-                    button.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        executeCommand(command);
-                    });
-                }
-            });
-            
-            // 綁定插入連結事件
-            linkBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                insertLink();
-            });
-
-            // 處理 contenteditable 區域的預設提示文字
-            postContentEditor.addEventListener('focus', () => {
-                if (postContentEditor.innerHTML.trim() === '請在此輸入公告內容...') {
-                    postContentEditor.innerHTML = '';
-                }
-            });
-            postContentEditor.addEventListener('blur', () => {
-                if (postContentEditor.innerHTML.trim() === '') {
-                    postContentEditor.innerHTML = '請在此輸入公告內容...';
-                }
-            });
         }
         
         // 監聽認證狀態
