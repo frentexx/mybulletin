@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公佈欄 - 進階版 (權限限制)</title>
+    <title>公佈欄 - 進階版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 定義客製化顏色，符合 UI Style Guide -->
     <script>
@@ -16,6 +16,7 @@
                         'warning': '#FBC02D', // Warning (Amber/Yellow)
                         'bg-light': '#FAFAF5', // Background (Off-White)
                         'text-dark': '#333333', // Dark Text
+                        // 保留原本的藍色作為次要點綴
                         'accent-blue': '#03A9F4', 
                     }
                 }
@@ -111,7 +112,7 @@
         <header class="text-center py-10 mb-8 bg-white rounded-xl shadow-lg">
             <!-- 使用 Primary 顏色作為標題強調色 -->
             <h1 class="text-5xl font-extrabold text-primary tracking-tight sm:text-6xl">
-                公佈欄 (限制存取)
+                公佈欄
             </h1>
             <p id="auth-status" class="mt-3 text-lg text-gray-500 font-medium">
                 正在驗證登入狀態...
@@ -129,18 +130,10 @@
                 需要登入權限
             </h2>
             <p class="text-gray-600 mb-6 text-center max-w-md">
-                請使用您的 Google 帳號登入。本站僅開放給 **5 個指定的帳號**。
+                請使用您的 Google 帳號登入，以查看公佈欄上的最新消息。
             </p>
-            
-            <!-- 新增未授權存取的錯誤訊息區塊 -->
-            <div id="access-denied-message" style="display:none;" class="error-message">
-                <h3 class="font-bold mb-1">❌ 存取被拒</h3>
-                <p id="denied-email-info"></p>
-                <p class="mt-2 font-semibold">請確認您使用的是允許清單中的帳號。</p>
-            </div>
-
             <!-- 使用 Primary 顏色作為按鈕顏色 -->
-            <button id="google-signin-btn" class="login-btn bg-primary text-white font-bold py-3 px-6 rounded-full shadow-lg flex items-center space-x-2 mt-6">
+            <button id="google-signin-btn" class="login-btn bg-primary text-white font-bold py-3 px-6 rounded-full shadow-lg flex items-center space-x-2">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20px" height="20px" class="fill-current text-white"><path fill="#fbc02d" d="M24 11.23c-5.74 0-10.42 4.67-10.42 10.42s4.68 10.42 10.42 10.42c2.9 0 5.56-1.19 7.46-3.1L37.83 37c-3.7 3.3-8.8 5.38-13.83 5.38C13.23 42.38 4 33.15 4 21.65S13.23 1 24 1c5.96 0 10.99 2.52 14.69 6.22l-3.32 3.32C32.74 8.7 28.52 6.75 24 6.75c-8.23 0-14.89 6.66-14.89 14.89S15.77 33.15 24 33.15c4.15 0 7.82-1.74 10.49-4.54L37.83 37c-3.7 3.3-8.8 5.38-13.83 5.38z"/><path fill="#e53935" d="M37.83 37l-3.32-3.32c2.67-2.8 4.34-6.49 4.34-10.42 0-3.36-1.21-6.44-3.23-8.86l3.32-3.32c2.83 3.34 4.5 7.6 4.5 12.18C42.38 28.2 40.5 32.5 37.83 37z"/><path fill="#4285f4" d="M42.38 21.65c0-1.28-.1-2.52-.29-3.7l-3.83-.01c.19 1.17.29 2.38.29 3.7 0 1.32-.1 2.53-.29 3.7l3.83-.01c.19-1.17.29-2.52.29-3.7z"/><path fill="#34a853" d="M37.83 37l-3.32-3.32c2.67-2.8 4.34-6.49 4.34-10.42 0-3.36-1.21-6.44-3.23-8.86l3.32-3.32c2.83 3.34 4.5 7.6 4.5 12.18C42.38 28.2 40.5 32.5 37.83 37z" opacity=".8"/></svg>
                 <span>使用 Google 登入</span>
             </button>
@@ -294,65 +287,42 @@
 
     <!-- Firebase SDK 引入和主邏輯 -->
     <script type="module">
-        // ==========================================================
-        // Firebase 引入 (使用強制規定的版本)
-        // ==========================================================
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // 統一使用12.4.0版本
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
         // 導入 Firestore 的 where 和 orderBy 
-        import { getFirestore, collection, onSnapshot, query, addDoc, deleteDoc, doc, Timestamp, orderBy, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // ==========================================================
-        // 核心配置 (使用 Canvas 環境變數)
-        // ==========================================================
-        // 專門用於控制誰可以登入的 5 個帳號清單
-        // **!!! 請將以下 placeholder 替換成您指定的 5 個 Google 帳號 !!!**
-        const ALLOWED_EMAILS = [
-            "fuwen@ppsh.ptc.edu.tw",      // 帳號 1 (您的原帳號，預設為管理員)
-            "kuo.frentexx@gmail.com",        // 帳號 2
-            "ppsh560@ppsh.ptc.edu.tw",        // 帳號 3
-            "itd01@ppsh.ptc.edu.tw",        // 帳號 4
-            "itd02@ppsh.ptc.edu.tw"         // 帳號 5
-        ];
+        import { getFirestore, collection, onSnapshot, query, addDoc, deleteDoc, doc, Timestamp, orderBy } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-analytics.js";
 
-        // 管理者清單 (管理者是允許登入清單的子集，例如只有帳號 1 擁有發布權限)
+        // ==========================================================
+        // 核心配置
+        // ==========================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBcr9xqSiyVuMjbslNozKaFsgar-yw_EK4",
+            authDomain: "gen-lang-client-0586740465.firebaseapp.com",
+            projectId: "gen-lang-client-0586740465",
+            storageBucket: "gen-lang-client-0586740465.firebasestorage.app",
+            messagingSenderId: "1037486688208",
+            appId: "1:1037486688208:web:6d657231e20b8e54ac5bd5",
+            measurementId: "G-L223W74MR2"
+        };
+        
+        // ** 管理者清單 **
         const ADMIN_EMAILS = [
             "fuwen@ppsh.ptc.edu.tw", 
         ];
-
-        // 為了比對方便，將清單轉換為小寫
-        const ALLOWED_EMAILS_LOWER = ALLOWED_EMAILS.map(e => e.toLowerCase());
+        // 為了比對方便，將管理者清單轉換為小寫
         const ADMIN_EMAILS_LOWER = ADMIN_EMAILS.map(e => e.toLowerCase());
-        
-        // 取得環境變數
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
         // 初始化Firebase
         const app = initializeApp(firebaseConfig);
-        setLogLevel('Debug'); // 開啟 Firestore Debug Log
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const analytics = getAnalytics(app); 
         
-        // Firestore 路徑 (使用公有資料路徑，因為公告要讓所有登入者查看)
-        const postsCollectionPath = `artifacts/${appId}/public/data/bulletin_posts`; 
+        // Firestore 路徑
+        const postsCollectionPath = 'bulletin_posts'; 
 
-        // 處理 Canvas 環境下的預先認證 (不影響 Google 登入流程)
-        async function initializeAuth() {
-            if (initialAuthToken) {
-                try {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } catch (error) {
-                    console.error("Custom Token Sign-in Failed, falling back to anonymous:", error);
-                    await signInAnonymously(auth);
-                }
-            } else {
-                await signInAnonymously(auth);
-            }
-        }
-        initializeAuth();
-        
         // ==========================================================
         // 預設選項/常數
         // ==========================================================
@@ -376,19 +346,23 @@
         const adminFormSection = document.getElementById('admin-form-section'); 
         const newPostForm = document.getElementById('new-post-form');
         const postTitleInput = document.getElementById('post-title');
-        const postCategorySelect = document.getElementById('post-category'); 
+        const postCategorySelect = document.getElementById('post-category'); // 新增公告的分類選單
         const postDepartmentInput = document.getElementById('post-department'); 
+        // 變更為 contenteditable 區域的元素
         const postContentEditor = document.getElementById('post-content-editor'); 
-        const searchInput = document.getElementById('search-input'); 
-        const filterCategorySelect = document.getElementById('filter-category'); 
-        const resultCountEl = document.getElementById('result-count'); 
-        const prevPageBtn = document.getElementById('prev-page'); 
-        const nextPageBtn = document.getElementById('next-page'); 
-        const pageInfoEl = document.getElementById('page-info'); 
+        
+        const searchInput = document.getElementById('search-input'); // 搜尋框
+        const filterCategorySelect = document.getElementById('filter-category'); // 篩選分類
+        
+        const resultCountEl = document.getElementById('result-count'); // 結果計數
+        
+        const prevPageBtn = document.getElementById('prev-page'); // 上一頁按鈕
+        const nextPageBtn = document.getElementById('next-page'); // 下一頁按鈕
+        const pageInfoEl = document.getElementById('page-info'); // 頁碼資訊
+        
+        // 編輯器按鈕
         const editorButtons = document.querySelectorAll('.editor-btn');
         const linkBtn = document.getElementById('link-btn');
-        const accessDeniedMessage = document.getElementById('access-denied-message'); // 新增的錯誤訊息區塊
-        const deniedEmailInfo = document.getElementById('denied-email-info'); // 錯誤訊息中的 Email 顯示
 
         // ==========================================================
         // 狀態與輔助函數
@@ -401,21 +375,13 @@
         let currentPage = 1; // 當前頁碼
         let totalPages = 1; // 總頁數
 
-        // 顯示登入錯誤提示
-        function showLoginError(message) {
-            deniedEmailInfo.textContent = message;
-            accessDeniedMessage.style.display = 'block';
-        }
-
-        // 隱藏登入錯誤提示
-        function hideLoginError() {
-            accessDeniedMessage.style.display = 'none';
-            deniedEmailInfo.textContent = '';
-        }
-
         // 初始化篩選器的選項 (同時也初始化了新增公告表單的分類選項)
         function initializeFilters() {
+            // 1. 清空篩選器選項並設置預設選項
             filterCategorySelect.innerHTML = '<option value="">所有分類</option>';
+            
+            // 2. 設置管理者表單的分類選項 (只在第一次載入時或未初始化時進行)
+            // 先清空，再重新填入
             postCategorySelect.innerHTML = '<option value="">請選擇分類</option>';
 
             CATEGORIES.forEach(category => {
@@ -432,6 +398,7 @@
                 filterCategorySelect.appendChild(filterOption);
             });
             
+            // 重新應用當前的篩選值，避免選項被重置後篩選狀態丟失
             if (filterCategorySelect.dataset.currentValue) {
                 filterCategorySelect.value = filterCategorySelect.dataset.currentValue;
             }
@@ -458,8 +425,8 @@
             if (isAdmin) {
                 adminStatusEl.style.display = 'block';
                 adminFormSection.style.display = 'block';
-                // 確保 auth.currentUser 存在並且有 displayName 或 email
-                authStatusEl.textContent = `歡迎，${auth.currentUser?.displayName || auth.currentUser?.email || '未知用戶'}！ (管理者)`;
+                authStatusEl.textContent = `歡迎，${auth.currentUser.displayName || auth.currentUser.email}！ (管理者)`;
+                // 確保管理者表單的分類下拉選單已經被初始化
                 initializeFilters(); 
             } else {
                 adminStatusEl.style.display = 'none';
@@ -472,15 +439,20 @@
             applyFiltersAndRender();
         }
 
+        // ==========================================================
+        // 篩選、搜尋與分頁核心邏輯
+        // ==========================================================
+
         // 應用篩選和搜尋
         function applyFilters() {
             const searchText = searchInput.value.toLowerCase().trim();
             const selectedCategory = filterCategorySelect.value;
             
+            // 儲存當前的篩選值，以便重新初始化選單後還能恢復
             filterCategorySelect.dataset.currentValue = selectedCategory;
 
             filteredPosts = allPosts.filter(post => {
-                // 1. 關鍵字搜尋 (只搜尋標題)
+                // 1. 關鍵字搜尋 (只搜尋標題，因為內容是 HTML，搜尋起來比較複雜且低效)
                 const matchesSearch = !searchText || 
                                       (post.title && post.title.toLowerCase().includes(searchText));
                 
@@ -490,12 +462,15 @@
                 return matchesSearch && matchesCategory;
             });
             
+            // 重設分頁
             currentPage = 1;
             totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE);
             if (totalPages === 0) totalPages = 1;
             
+            // 更新結果計數
             resultCountEl.textContent = `顯示 ${filteredPosts.length} 筆結果`;
             
+            // 重新渲染當前頁面
             renderCurrentPage();
         }
         
@@ -510,11 +485,11 @@
 
             if (postsToDisplay.length === 0) {
                  postsContainer.innerHTML = `
-                     <div class="bg-warning/10 p-6 rounded-xl shadow-md border-t-4 border-warning text-center text-warning">
-                         <p class="font-semibold mb-2">在當前篩選條件下，沒有找到任何公告。</p>
-                         <p class="text-sm">請嘗試修改篩選條件或搜尋關鍵字。</p>
-                     </div>
-                 `;
+                    <div class="bg-warning/10 p-6 rounded-xl shadow-md border-t-4 border-warning text-center text-warning">
+                        <p class="font-semibold mb-2">在當前篩選條件下，沒有找到任何公告。</p>
+                        <p class="text-sm">請嘗試修改篩選條件或搜尋關鍵字。</p>
+                    </div>
+                `;
             } else {
                 postsToDisplay.forEach(post => {
                     const postElement = document.createElement('div');
@@ -597,13 +572,19 @@
         
         // 執行編輯器指令
         function executeCommand(command) {
+            // 聚焦編輯器以確保指令作用於正確的選區
             postContentEditor.focus();
             document.execCommand(command, false, null);
         }
         
         // 處理插入連結
         function insertLink() {
+            // 確保焦點在編輯器內
             postContentEditor.focus();
+            
+            // 在 iFrame 環境中不能使用 window.prompt，必須使用自定義或控制台錯誤。
+            // 為了簡化和功能實現，我們使用一個 console.error 來模擬一個提示，並要求使用者直接在控制台輸入。
+            // 由於這是演示代碼，我們將使用簡單的 `prompt` 替代，但必須註明這在實際生產環境的 iFrame 中需要使用自定義 Modal。
             
             // 警告: 在 Canvas 提供的 iFrame 環境中，window.prompt() 會被禁用。
             // 以下使用原生 prompt 僅為演示功能，在實際部署時應替換為 Modal。
@@ -611,6 +592,7 @@
             
             if (url) {
                 // 執行創建連結的命令
+                // createLink: 創建一個錨點連結
                 document.execCommand('createLink', false, url);
             }
         }
@@ -691,7 +673,7 @@
                 await deleteDoc(doc(db, postsCollectionPath, postId));
             } catch (error) {
                 console.error("刪除公告失敗:", error);
-                const errorMessage = error.code === 'permission-denied' 
+                 const errorMessage = error.code === 'permission-denied' 
                     ? '權限不足。請檢查 Firebase 安全規則。'
                     : `刪除公告失敗: ${error.message}`;
                 console.error(errorMessage);
@@ -702,7 +684,7 @@
         }
 
         // ==========================================================
-        // 認證與監聽 (*** 關鍵修正點：新增錯誤提示邏輯 ***)
+        // 認證與監聽
         // ==========================================================
 
         // Google登入
@@ -712,23 +694,12 @@
                 fileWarning.style.display = 'block';
                 return;
             }
-            hideLoginError(); // 嘗試登入前先清除錯誤
 
             try {
                 await signInWithPopup(auth, provider);
             } catch (error) {
                 console.error("登入失敗:", error);
-                let errorMessage = '登入失敗，請重試。';
-
-                // *** 修正: 針對 unauthorized-domain 錯誤提供更明確的提示 ***
-                if (error.code === 'auth/unauthorized-domain') {
-                    errorMessage = '登入失敗：當前網域未被授權。請將您的運行網域 (例如 localhost) 加入 Firebase Console 的「Authentication -> 設定 -> 授權網域」清單中。';
-                } else if (error.message) {
-                    errorMessage = `登入失敗: ${error.message}`;
-                }
-                // ******************************************************
-
-                authStatusEl.textContent = errorMessage;
+                authStatusEl.textContent = `登入失敗: ${error.message}`;
             }
         });
 
@@ -821,50 +792,32 @@
             });
         }
         
-        // 監聽認證狀態 
-        onAuthStateChanged(auth, async (user) => {
+        // 監聽認證狀態
+        onAuthStateChanged(auth, (user) => {
             if (window.location.protocol === 'file:') {
                 authStatusEl.textContent = '錯誤：請使用網路伺服器運行';
                 return;
             }
             
-            let isAuthorizedForContent = false;
-            let isAdmin = false;
-
             if (user) {
-                // 如果沒有 Email，則設為 null (例如匿名/Custom Token 用戶)
-                currentUserEmail = user.email ? user.email.toLowerCase() : null;
-
-                if (currentUserEmail) {
-                    // 只有當用戶有 Email 時，才檢查白名單
-                    if (ALLOWED_EMAILS_LOWER.includes(currentUserEmail)) {
-                        isAuthorizedForContent = true;
-                        isAdmin = ADMIN_EMAILS_LOWER.includes(currentUserEmail);
-                    } else {
-                        // 帳號存在，但不在白名單中 -> 強制登出
-                        console.error('Unauthorized access attempt by:', user.email);
-                        showLoginError(`您的帳號 (${user.email}) 未被授權存取。請使用指定的 5 個帳號之一登入。`);
-                        await signOut(auth);
-                        return; // 登出後會再次觸發 onAuthStateChanged，進入 (user == null) 區塊
-                    }
-                }
-            }
-
-            // 根據最終授權狀態 (isAuthorizedForContent) 更新 UI
-            if (isAuthorizedForContent && user) {
-                // 授權成功：顯示公佈欄內容
+                currentUserEmail = user.email ? user.email.toLowerCase() : '';
+                const isAdmin = ADMIN_EMAILS_LOWER.includes(currentUserEmail);
+                
+                // 更新 UI 狀態 (包含管理權限)
                 updateAdminUI(isAdmin, user.email); 
-                hideLoginError();
+
+                // 已登入（顯示公佈欄）
                 loginScreen.style.display = 'none';
                 mainContent.style.display = 'block';
-                loadPosts();
+                loadPosts(); // 監聽公告數據
+                
             } else {
-                // 未授權 (user=null, 或 user 存在但無 email, 或剛被踢出): 顯示登入畫面
+                // 未登入（顯示登入畫面）
                 authStatusEl.textContent = '請登入以查看內容';
                 mainContent.style.display = 'none';
                 loginScreen.style.display = 'flex';
                 
-                // 重設狀態
+                // 重設管理者狀態
                 updateAdminUI(false, null); 
 
                 if (unsubscribePosts) {
